@@ -1,8 +1,8 @@
-from aiogram import Router, types, F
+from aiogram import Bot, Router, types, F
 from aiogram.filters import Command, and_f, StateFilter
 from config import ADMIN_ID
 from database import Database
-from keyboards import admin_panel_keyboard
+from keyboards import admin_panel_keyboard, vip_user_keyboard, admin_user_keyboard, premium_user_keyboard
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
@@ -17,6 +17,8 @@ class Broadcast(StatesGroup):
 class UpdateUser(StatesGroup):
     user = State()
 
+user_type = None
+
 router = Router()
 db = Database("database.db")
 
@@ -26,7 +28,7 @@ async def admin_panel(message: types.Message):
 
 @router.message(and_f(F.text == "Statistika", F.from_user.id == ADMIN_ID))
 async def show_stats(message: types.Message):
-    await message.answer(f"Foydalanuvchilar soni: {len(db.get_all_users())}\nDarslar soni: {len(db.get_courses())}")
+    await message.answer(f"Foydalanuvchilar soni: {len(db.get_all_users())}\nDarslar soni: {db.get_lessons_count()}")
 
 @router.message(and_f(F.text == "Dars Qo'shish", F.from_user.id == ADMIN_ID))
 async def add_course_panel(message: types.Message, state: FSMContext):
@@ -38,30 +40,67 @@ async def send_message_panel(message: types.Message, state: FSMContext):
     await message.answer("Yuboriladigan xabar matnini kiriting")
     await state.set_state(Broadcast.message)
 
-@router.message(and_f(F.text == "VIP foydalanuvchilar", F.from_user.id == ADMIN_ID))
+@router.message(and_f(F.text.in_(["VIP Foydalanuvchilar", "PREMIUM Foydalanuvchilar", "Adminlar"]), F.from_user.id == ADMIN_ID))
 async def show_vip_users(message: types.Message):
-    vip_users = db.get_vip_users()
-    if vip_users:
-        user_info = "\n".join([f"ID: {user['user_id']}, Username: {user['username']}" for user in vip_users])
-        await message.answer(f"VIP foydalanuvchilar:\n{user_info}")
-    else:
-        await message.answer("VIP foydalanuvchilar yo'q.")
+    if message.text == "VIP Foydalanuvchilar":
+        vip_users = db.get_vip_users()
+        if vip_users:
+            await message.answer(f"VIP foydalanuvchilar soni: {len(vip_users)}", reply_markup=vip_user_keyboard())
+        else:
+            await message.answer("VIP foydalanuvchilar yo'q.", reply_markup=vip_user_keyboard())
+    elif message.text == "PREMIUM Foydalanuvchilar":
+        premium_users = db.get_premium_users()
+        if premium_users:
+            await message.answer(f"PREMIUM foydalanuvchilar soni: {len(premium_users)}", reply_markup=premium_user_keyboard())
+        else:
+            await message.answer("PREMIUM foydalanuvchilar yo'q.", reply_markup=premium_user_keyboard())
+    elif message.text == "Adminlar":
+        admin_users = db.get_admins()
+        if admin_users:
+            admins_username = "@ ".join([user['username'] for user in admin_users])
+            await message.answer(f"Adminlar: {admins_username}", reply_markup=admin_user_keyboard())
+        else:
+            await message.answer("Adminlar yo'q.", reply_markup=admin_user_keyboard())
+
+@router.callback_query(and_f(F.data.in_(["add_vip_user", "add_premium_user", "remove_vip_user", "remove_premium_user", "remove_admin", "add_admin"]), F.from_user.id == ADMIN_ID))
+async def update_user_type(call: types.CallbackQuery, state: FSMContext):
+    global user_type
+    if call.data == "add_vip_user":
+        await call.message.answer("VIP foydalanuvchi usernameini kiriting")
+        user_type = "vip"
+    elif call.data == "add_premium_user":
+        await call.message.answer("PREMIUM foydalanuvchi usernameini kiriting")
+        user_type = "premium"
+    elif call.data == "remove_vip_user":
+        await call.message.answer("VIP foydalanuvchi usernameini kiriting")
+        user_type = "oddiy"
+    elif call.data == "remove_premium_user":
+        await call.message.answer("PREMIUM foydalanuvchi usernameini kiriting")
+        user_type = "oddiy"
+    elif call.data == "add_admin":
+        await call.message.answer("Admin usernameini kiriting")
+        user_type = "admin"
+    elif call.data == "remove_admin":
+        await call.message.answer("Admin usernameini kiriting")
+        user_type = "oddiy"
+    await call.answer()
+    await state.set_state(UpdateUser.user)
 
 @router.message(and_f(StateFilter(Broadcast.message), F.from_user.id == ADMIN_ID))
-async def broadcast_message(message: types.Message):
+async def broadcast_message(message: types.Message, bot: Bot):
     users = db.get_oddiy_users()
     if message.content_type == "text":
         text = message.text
         for user in users:
             try:
-                await router.bot.send_message(user['user_id'], text)
+                await bot.send_message(user['user_id'], text)
             except Exception as e:
                 print(f"Xabar yuborishda xatolik: {e}")
     elif message.content_type == "photo":
         photo = message.photo[-1].file_id
         for user in users:
             try:
-                await router.bot.send_photo(user['user_id'], photo, caption=message.caption)
+                await bot.send_photo(user['user_id'], photo, caption=message.caption)
             except Exception as e:
                 print(f"Xabar yuborishda xatolik: {e}")
     await message.answer("Xabar barcha foydalanuvchilarga yuborildi!")
@@ -75,7 +114,7 @@ async def add_course_name(message: types.Message, state: FSMContext):
 @router.message(and_f(StateFilter(AddCourseState.code), F.from_user.id == ADMIN_ID))
 async def add_course_code(message: types.Message, state: FSMContext):
     await state.update_data(code=message.text)
-    await message.answer("Dars video linkini kiriting")
+    await message.answer("Video yuboring")
     await state.set_state(AddCourseState.video)
 
 @router.message(and_f(StateFilter(AddCourseState.video), F.from_user.id == ADMIN_ID, F.video))
@@ -84,38 +123,28 @@ async def add_course_video(message: types.Message, state: FSMContext):
     name = data.get("name")
     code = data.get("code")
     video = message.video.file_id
-    db.add_course(name, code, video)
+    db.add_lesson(name, code, video)
     await message.answer("Dars muvaffaqiyatli qo'shildi!")
     await state.clear()
 
-@router.callback_query(and_f(F.data == "add_vip_user", F.from_user.id == ADMIN_ID))
-async def add_vip_user(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.answer("VIP foydalanuvchi usernamesini kiriting")
-    await state.set_state(UpdateUser.user)
-
 @router.message(and_f(StateFilter(UpdateUser.user), F.from_user.id == ADMIN_ID))
 async def handle_vip_user(message: types.Message):
-    if "@" not in message.text:
-        message.text = "@" + message.text
-    
+    message.text = message.text.replace("@", "")
+
     if db.get_user(username=message.text):
-        db.promote_user("vip", message.text)
-        await message.answer(f"Foydalanuvchi {message.text} VIP qilindi!")
+        db.promote_user(user_type, message.text)
+        await message.answer(f"Foydalanuvchi {message.text} {user_type} qilindi!")
     else:
         await message.answer("Bunday foydalanuvchi topilmadi.")
 
-@router.callback_query(and_f(F.data == "remove_vip_user", F.from_user.id == ADMIN_ID))
-async def remove_vip_user(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.answer("VIP foydalanuvchi usernamesini kiriting")
-    await state.set_state(UpdateUser.user)
-
 @router.message(and_f(StateFilter(UpdateUser.user), F.from_user.id == ADMIN_ID))
 async def handle_remove_vip_user(message: types.Message):
+
     if "@" not in message.text:
         message.text = "@" + message.text
     
     if db.get_user(username=message.text):
         db.demote_user("oddiy", message.text)
-        await message.answer(f"Foydalanuvchi {message.text} VIP dan chiqarildi!")
+        await message.answer(f"Foydalanuvchi {message.text} {user_type} dan chiqarildi!")
     else:
         await message.answer("Bunday foydalanuvchi topilmadi.")

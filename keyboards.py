@@ -22,15 +22,28 @@ def admin_panel_keyboard():
         keyboard=[
             [KeyboardButton(text="Statistika"), KeyboardButton(text="Dars Qo'shish")],
             [KeyboardButton(text="Xabar yuborish")],
-            [KeyboardButton(text="VIP Foydalanuvchi"), KeyboardButton(text="PREMIUM Foydalanuvchi")],
-            [KeyboardButton(text="Admin qo'shish")]
+            [KeyboardButton(text="VIP Foydalanuvchilar"), KeyboardButton(text="PREMIUM Foydalanuvchilar")],
+            [KeyboardButton(text="Adminlar")]
         ]
     )
 
 def vip_user_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="VIP foydalanuvchi qo'shish", callback_data="add_vip_user")],
-            [InlineKeyboardButton(text="VIP foydalanuvchi o'chirish", callback_data="remove_vip_user")]
+            [InlineKeyboardButton(text="VIP foydalanuvchi qo'shish", callback_data="add_vip_user"), InlineKeyboardButton(text="VIP foydalanuvchi o'chirish", callback_data="remove_vip_user")],
+        ]
+    )
+
+def admin_user_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Admin qo'shish", callback_data="add_admin"), InlineKeyboardButton(text="Admin o'chirish", callback_data="remove_admin")]
+        ]
+    )
+
+def premium_user_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="PREMIUM foydalanuvchi qo'shish", callback_data="add_premium_user"), InlineKeyboardButton(text="PREMIUM foydalanuvchi o'chirish", callback_data="remove_premium_user")]
         ]
     )

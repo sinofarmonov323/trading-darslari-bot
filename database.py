@@ -81,10 +81,10 @@ class Database:
             cursor = self.con.execute("SELECT * FROM users")
             return [dict(row) for row in cursor.fetchall()]
 
-    def get_course(self, course_code):
+    def get_lesson(self, lesson_code):
         with self.con:
             self.con.row_factory = sqlite3.Row
-            cursor = self.con.execute("SELECT * FROM lessons WHERE code = ?", (course_code,))
+            cursor = self.con.execute("SELECT * FROM lessons WHERE code = ?", (lesson_code,))
             return dict(cursor.fetchone()) if cursor.fetchone() else None
     
     def check_code(self, code):
@@ -109,6 +109,17 @@ class Database:
                 new_points = user["point"] + points
                 self.con.execute("UPDATE OR IGNORE users SET point = ? WHERE username = ?", (new_points, username))
                 self.con.commit()
+    
+    def get_lessons_count(self):
+        with self.con:
+            cursor = self.con.execute("SELECT COUNT(*) FROM lessons")
+            return cursor.fetchone()[0]
+    
+    def get_admins(self):
+        with self.con:
+            self.con.row_factory = sqlite3.Row
+            cursor = self.con.execute("SELECT * FROM users WHERE state = 'admin'")
+            return [dict(row) for row in cursor.fetchall()]
 
 # db = Database("database.db")
 

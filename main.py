@@ -28,11 +28,10 @@ async def start(message: types.Message, bot: Bot, command: CommandObject):
         db.add_user(message.from_user.id, message.from_user.username, "oddiy")
         await message.answer(f"Salom {message.from_user.first_name}!\nTrading Darslari botiga xush kelibsiz", reply_markup=main_menu())
 
-@dp.callback_query(F.data != "check_sub")
+@dp.callback_query(F.data == "referal_link")
 async def handle_callback(call: types.CallbackQuery, bot: Bot):
-    if call.data == "referal_link":
-        link = await create_start_link(bot, str(call.from_user.id))
-        await call.message.answer(f"Sizning referal linkingiz: {link}")
+    link = await create_start_link(bot, str(call.from_user.id))
+    await call.message.answer(f"Sizning referal linkingiz: {link}")
 
 @dp.callback_query(F.data == "check_sub")
 async def check_subscription(callback: types.CallbackQuery, bot: Bot):
