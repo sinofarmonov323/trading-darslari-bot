@@ -128,23 +128,21 @@ async def add_course_video(message: types.Message, state: FSMContext):
     await state.clear()
 
 @router.message(and_f(StateFilter(UpdateUser.user), F.from_user.id == ADMIN_ID))
-async def handle_vip_user(message: types.Message):
-    message.text = message.text.replace("@", "")
+async def handle_update_user(message: types.Message, state: FSMContext):
+    username = message.text.strip()
+    if username.startswith("@"):
+        username = username[1:]
 
-    if db.get_user(username=message.text):
-        db.promote_user(user_type, message.text)
-        await message.answer(f"Foydalanuvchi {message.text} {user_type} qilindi!")
-    else:
+    user = db.get_user(username=username)
+    if not user:
         await message.answer("Bunday foydalanuvchi topilmadi.")
+        return
 
-@router.message(and_f(StateFilter(UpdateUser.user), F.from_user.id == ADMIN_ID))
-async def handle_remove_vip_user(message: types.Message):
-
-    if "@" not in message.text:
-        message.text = "@" + message.text
-    
-    if db.get_user(username=message.text):
-        db.demote_user("oddiy", message.text)
-        await message.answer(f"Foydalanuvchi {message.text} {user_type} dan chiqarildi!")
+    if user_type == "oddiy":
+        db.demote_user(user_type, username)
+        await message.answer(f"Foydalanuvchi @{username} {user_type} qilindi!")
     else:
-        await message.answer("Bunday foydalanuvchi topilmadi.")
+        db.promote_user(user_type, username)
+        await message.answer(f"Foydalanuvchi @{username} {user_type} qilindi!")
+
+    await state.clear()

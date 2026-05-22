@@ -18,16 +18,15 @@ class Database:
             self.con.execute("INSERT OR IGNORE INTO users (user_id, username, state, point) VALUES (?, ?, ?, ?)", (user_id, username, state, point))
             self.con.commit()
     
-    @staticmethod
     def get_user(self, user_id=None, username=None):
         with self.con:
             self.con.row_factory = sqlite3.Row
             if user_id:
                 cursor = self.con.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
-                return dict(cursor.fetchone()) if cursor.fetchone() else None
+                return dict(cursor.fetchone()) #if cursor.fetchone() else None
             elif username:
                 cursor = self.con.execute("SELECT * FROM users WHERE username = ?", (username,))
-                return dict(cursor.fetchone()) if cursor.fetchone() else None
+                return dict(cursor.fetchone()) #if cursor.fetchone() else None
     
     def add_lesson(self, name, code, video):
         with self.con:
@@ -85,7 +84,7 @@ class Database:
         with self.con:
             self.con.row_factory = sqlite3.Row
             cursor = self.con.execute("SELECT * FROM lessons WHERE code = ?", (lesson_code,))
-            return dict(cursor.fetchone()) if cursor.fetchone() else None
+            return dict(cursor.fetchone()) #if cursor.fetchone() else None
     
     def check_code(self, code):
         with self.con:
@@ -127,3 +126,5 @@ class Database:
 
 # print(db.add_channel(123456789, "https://t.me/example_channel"))
 # print(db.get_channels())
+
+# print(db.get_user(username="Tr_Muhammad"))
