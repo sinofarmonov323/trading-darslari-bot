@@ -37,7 +37,7 @@ def vip_user_keyboard() -> InlineKeyboardMarkup:
 def admin_user_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Admin qo'shish", callback_data="add_admin"), InlineKeyboardButton(text="Admin o'chirish", callback_data="remove_admin")]
+            [InlineKeyboardButton(text="Admin qo'shish", callback_data="add_admin"), InlineKeyboardButton(text="Admin o'chirish", callback_data="remove_admin"), InlineKeyboardButton(text="Adminlarni ko'rish", callback_data="view_admins")]
         ]
     )
 
