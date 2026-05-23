@@ -91,9 +91,12 @@ class Database:
             cursor = self.con.execute("SELECT * FROM lessons WHERE code = ?", (code,))
             return bool(cursor.fetchone())
         
-    def promote_user(self, promotion_type: str, username: str):
+    def promote_user(self, promotion_type: str, username: str = None, user_id: int = None):
         with self.con:
-            self.con.execute("UPDATE OR IGNORE users SET state = ? WHERE username = ?", (promotion_type, username))
+            if username:
+                self.con.execute("UPDATE OR IGNORE users SET state = ? WHERE username = ?", (promotion_type, username))
+            elif user_id:
+                self.con.execute("UPDATE OR IGNORE users SET state = ? WHERE user_id = ?", (promotion_type, user_id))
             self.con.commit()
     
     def demote_user(self, demote_type: str, username: str):
