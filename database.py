@@ -20,7 +20,7 @@ class Database:
         with self._conn() as con:
             con.execute(f"CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE, username TEXT UNIQUE, state TEXT, point INTEGER DEFAULT 0)")
             con.execute(f"CREATE TABLE IF NOT EXISTS lessons (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, code INTEGER UNIQUE, video TEXT)")
-            con.execute(f"CREATE TABLE IF NOT EXISTS channels (id INTEGER PRIMARY KEY AUTOINCREMENT, channel_id INTEGER UNIQUE, channel_url TEXT)")
+            con.execute(f"CREATE TABLE IF NOT EXISTS channels (id INTEGER PRIMARY KEY AUTOINCREMENT, channel_url TEXT)")
             con.commit()
 
     def add_user(self, user_id, username, state, point=0):
@@ -51,16 +51,15 @@ class Database:
             cursor = con.execute("SELECT * FROM lessons")
             return [dict(row) for row in cursor.fetchall()]
 
-    def add_channel(self, channel_id, channel_url):
+    def add_channel(self, channel_url):
         with self._conn() as con:
-            con.execute("INSERT OR IGNORE INTO channels (channel_id, channel_url) VALUES (?, ?)", (channel_id, channel_url))
+            con.execute("INSERT OR IGNORE INTO channels (channel_url) VALUES (?)", (channel_url,))
             con.commit()
     
     def get_channels(self):
         with self._conn() as con:
-            con.row_factory = sqlite3.Row
-            cursor = con.execute("SELECT * FROM channels")
-            return [dict(row) for row in cursor.fetchall()]
+            cursor = con.execute("SELECT channel_url FROM channels")
+            return [row[0] for row in cursor.fetchall()]
 
     def get_user_count(self):
         with self._conn() as con:
@@ -134,10 +133,19 @@ class Database:
             con.row_factory = sqlite3.Row
             cursor = con.execute("SELECT * FROM users WHERE state = 'admin'")
             return [dict(row) for row in cursor.fetchall()]
+    
+    def remove_lesson(self, code):
+        with self._conn() as con:
+            con.execute("DELETE FROM lessons WHERE code = ?", (code,))
+            con.commit()
+    
+    def remove_channels(self):
+        with self._conn() as con:
+            con.execute("DELETE FROM channels")
+            con.commit()
 
-# db = Database("database.db")
+db = Database("database.db")
 
-# db.create_tables()
+db.create_tables()
 
-# print(db.add_channel(123456789, "https://t.me/example_channel"))
 # print(db.get_channels())

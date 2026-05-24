@@ -2,7 +2,7 @@ from aiogram import Bot, Router, types, F
 from aiogram.filters import Command, and_f, StateFilter
 from config import ADMIN_ID
 from database import Database
-from keyboards import admin_panel_keyboard, vip_user_keyboard, admin_user_keyboard, premium_user_keyboard
+from keyboards import admin_panel_keyboard, channels_menu_keyboard, vip_user_keyboard, admin_user_keyboard, premium_user_keyboard, lesson_keyboard
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
@@ -17,43 +17,31 @@ class Broadcast(StatesGroup):
 class UpdateUser(StatesGroup):
     user = State()
 
+class RemoveLesson(StatesGroup):
+    code = State()
+
+class AddChannel(StatesGroup):
+    channel_url = State()
+
 user_type = None
 
 router = Router()
 db = Database("database.db")
 
-# Ensure we can check admins at runtime (handlers are decorated at import time,
-# so using a dynamic check lets newly promoted admins take effect immediately)
 def is_admin(entity) -> bool:
+    db.promote_user("admin", user_id=ADMIN_ID)
     try:
         user_id = entity.from_user.id
     except Exception:
         return False
     return any(adm.get('user_id') == user_id for adm in db.get_admins())
 
-# Promote initial admin from config (if needed)
-db.promote_user("admin", user_id=ADMIN_ID)
-
 @router.message(and_f(Command("admin"), is_admin))
 async def admin_panel(message: types.Message):
     await message.answer("Admin paneliga xush kelibsiz! Bu yerda siz botni boshqarishingiz mumkin.", reply_markup=admin_panel_keyboard())
 
-@router.message(and_f(F.text == "Statistika", is_admin))
-async def show_stats(message: types.Message):
-    await message.answer(f"Foydalanuvchilar soni: {len(db.get_all_users())}\nDarslar soni: {db.get_lessons_count()}")
-
-@router.message(and_f(F.text == "Dars Qo'shish", is_admin))
-async def add_course_panel(message: types.Message, state: FSMContext):
-    await message.answer("Dars nomini kiriting")
-    await state.set_state(AddCourseState.name)
-
-@router.message(and_f(F.text == "Xabar yuborish", is_admin))
-async def send_message_panel(message: types.Message, state: FSMContext):
-    await message.answer("Yuboriladigan xabar matnini kiriting")
-    await state.set_state(Broadcast.message)
-
-@router.message(and_f(F.text.in_(["VIP Foydalanuvchilar", "PREMIUM Foydalanuvchilar", "Adminlar"]), is_admin))
-async def show_vip_users(message: types.Message):
+@router.message(and_f(F.text.in_(["VIP Foydalanuvchilar", "PREMIUM Foydalanuvchilar", "Adminlar", "Statistika", "Darslar", "Xabar yuborish", "Majburiy obuna qo'shish"]), is_admin))
+async def show_vip_users(message: types.Message, state: FSMContext):
     if message.text == "VIP Foydalanuvchilar":
         vip_users = db.get_vip_users()
         if vip_users:
@@ -69,11 +57,46 @@ async def show_vip_users(message: types.Message):
     elif message.text == "Adminlar":
         admin_users = db.get_admins()
         if admin_users:
-            await message.answer(f"Adminlar bo'limi", reply_markup=admin_user_keyboard())
+            admins = " ".join([f"@{user['username']}" for user in admin_users])
+            await message.answer(f"Adminlar: {admins}", reply_markup=admin_user_keyboard())
         else:
             await message.answer("Adminlar yo'q.", reply_markup=admin_user_keyboard())
+    elif message.text == "Statistika":
+        await message.answer(f"Foydalanuvchilar soni: {len(db.get_all_users())}\nDarslar soni: {db.get_lessons_count()}")
+    elif message.text == "Darslar":
+        await message.answer(f"Darslar soni: {db.get_lessons_count()}", reply_markup=lesson_keyboard())
+    elif message.text == "Xabar yuborish":
+        await message.answer("Yuboriladigan xabar matnini kiriting")
+        await state.set_state(Broadcast.message)
+    elif message.text == "Majburiy obuna qo'shish":
+        await message.answer(f"Majburiy obuna qo'shish bo'limi", reply_markup=channels_menu_keyboard())
 
-@router.callback_query(and_f(F.data.in_(["add_vip_user", "add_premium_user", "remove_vip_user", "remove_premium_user", "remove_admin", "add_admin", "view_admins"]), is_admin))
+@router.callback_query(and_f(F.data.in_(["add_channel", "remove_channels", "view_channels"]), is_admin))
+async def handle_channel_callback(call: types.CallbackQuery, state: FSMContext):
+    if call.data == "add_channel":
+        await call.message.answer("Kanalning manzilini kiriting (misol: https://t.me/kanal_linki)")
+        await state.set_state(AddChannel.channel_url)
+    elif call.data == "remove_channels":
+        db.remove_channels()
+        await call.message.answer("Barcha kanallar ro'yxatdan o'chirildi.")
+    elif call.data == "view_channels":
+        channels = ", ".join([channel for channel in db.get_channels()])
+        if channels:
+            await call.message.answer(f"Majburiy obuna uchun kanallar ro'yxati: {channels}")
+        else:
+            await call.message.answer("Majburiy azo uchun kanallar yo'q")
+    await call.answer()
+
+@router.callback_query(and_f(F.data.in_(["add_lesson", "remove_lesson"]), is_admin))
+async def handle_lesson_callback(call: types.CallbackQuery, state: FSMContext):
+    if call.data == "add_lesson":
+        await call.message.answer("Dars nomini kiriting")
+        await state.set_state(AddCourseState.name)
+    elif call.data == "remove_lesson":
+        await call.message.answer("O'chiriladigan dars kodini kiriting")
+        await state.set_state(RemoveLesson.code)
+
+@router.callback_query(and_f(F.data.in_(["add_vip_user", "add_premium_user", "remove_vip_user", "remove_premium_user", "remove_admin", "add_admin"]), is_admin))
 async def update_user_type(call: types.CallbackQuery, state: FSMContext):
     global user_type
     if call.data == "add_vip_user":
@@ -108,7 +131,7 @@ async def update_user_type(call: types.CallbackQuery, state: FSMContext):
     await state.set_state(UpdateUser.user)
 
 @router.message(and_f(StateFilter(Broadcast.message), is_admin))
-async def broadcast_message(message: types.Message, bot: Bot):
+async def broadcast_message(message: types.Message, bot: Bot, state: FSMContext):
     users = db.get_oddiy_users()
     if message.content_type == "text":
         text = message.text
@@ -125,6 +148,7 @@ async def broadcast_message(message: types.Message, bot: Bot):
             except Exception as e:
                 print(f"Xabar yuborishda xatolik: {e}")
     await message.answer("Xabar barcha foydalanuvchilarga yuborildi!")
+    await state.clear()
 
 @router.message(and_f(StateFilter(AddCourseState.name), is_admin))
 async def add_course_name(message: types.Message, state: FSMContext):
@@ -167,3 +191,20 @@ async def handle_update_user(message: types.Message, state: FSMContext):
         await message.answer(f"Foydalanuvchi @{username} {user_type} qilindi!")
 
     await state.clear()
+
+@router.message(and_f(StateFilter(RemoveLesson.code), is_admin))
+async def handle_remove_lesson(message: types.Message, state: FSMContext):
+    code = message.text.strip()
+    if db.check_code(code):
+        db.remove_lesson(code)
+        await message.answer(f"{code} kodli dars o'chirildi!")
+    else:
+        await message.answer(f"{code} kodli dars topilmadi.")
+    await state.clear()
+
+@router.message(and_f(StateFilter(AddChannel.channel_url), is_admin))
+async def handle_add_channel(message: types.Message):
+    channels = [channel.strip() for channel in message.text.split(", ")]
+    for channel in channels:
+        db.add_channel(channel)
+    await message.answer("Kanallar qo'shildi")
