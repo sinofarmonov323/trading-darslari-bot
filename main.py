@@ -16,17 +16,18 @@ dp.include_router(router)
 
 db = Database("database.db")
 
+async def get_subscription_statuses(bot: Bot, user_id: int) -> list[str]:
+    statuses = []
+    for channel in db.get_channels():
+        member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
+        statuses.append(member.status)
+    return statuses
+
 @dp.message(CommandStart())
 async def start(message: types.Message, bot: Bot, command: CommandObject):
-    try:
-        for channel in db.get_channels():
-            print(await bot.get_chat_member(chat_id=channel, user_id=message.from_user.id))
-    except TelegramBadRequest:
-        print("Bot kanalda admin bo'lishi kerak")
-    return
-    unsubbed_channels = [channel for channel in db.get_channels() if "left" in await bot.get_chat_member(chat_id=channel, user_id=message.from_user.id)]
-    if unsubbed_channels:
-        await message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(unsubbed_channels))
+    channel_urls = await get_subscription_statuses(bot, message.from_user.id)
+    if "left" in channel_urls:
+        await message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(db.get_channels()))
     else:
         args = command.args
         if args:
@@ -35,19 +36,24 @@ async def start(message: types.Message, bot: Bot, command: CommandObject):
         db.add_user(message.from_user.id, message.from_user.username, "oddiy")
         await message.answer(f"Salom {message.from_user.first_name}!\nDarsning kodini yuboring", reply_markup=main_menu())
 
-@dp.callback_query(F.data == "referal_link")
+@dp.callback_query(F.data.in_(["referal_link", "search_lesson"]))
 async def handle_callback(call: types.CallbackQuery, bot: Bot):
-    link = await create_start_link(bot, str(call.from_user.id))
-    await call.message.answer(f"Sizning referal linkingiz: {link}")
+    if call.data == "referal_link":
+        link = await create_start_link(bot, str(call.from_user.id))
+        await call.message.answer(f"Sizning referal linkingiz: {link}")
+    elif call.data == "search_lesson":
+        await call.message.answer("Bu funksiya hali mavjud emas")
+    await call.answer()
 
 @dp.callback_query(F.data == "check_sub")
-async def check_subscription(callback: types.CallbackQuery, bot: Bot):
-    unsubbed_channels = [channel for channel in db.get_channels() if "left" in await bot.get_chat_member(callback.from_user.id, channel["channel_url"]).status]
-    if unsubbed_channels:
-        await callback.message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(unsubbed_channels))
+async def check_subscription(call: types.CallbackQuery, bot: Bot):
+    channel_urls = await get_subscription_statuses(bot, call.from_user.id)
+    if "left" in channel_urls:
+        await call.message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(db.get_channels()))
     else:
-        db.add_user(callback.from_user.id, callback.from_user.username, "oddiy")
-        await callback.message.answer(f"Botdan foydalanishingiz mumkin", reply_markup=main_menu())
+        db.add_user(call.from_user.id, call.from_user.username, "oddiy")
+        await call.message.answer(f"Botdan foydalanishingiz mumkin", reply_markup=main_menu())
+    await call.answer()
 
 @dp.message(F.text.isdigit())
 async def handle_digit(message: types.Message, bot: Bot, state: FSMContext):
@@ -55,9 +61,9 @@ async def handle_digit(message: types.Message, bot: Bot, state: FSMContext):
     if state:
         raise SkipHandler()
     else:
-        unsubbed_channels = [channel for channel in db.get_channels() if "left" in await bot.get_chat_member(chat_id=channel, user_id=message.from_user.id).status]
-        if unsubbed_channels:
-            await message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(unsubbed_channels))
+        channel_urls = await get_subscription_statuses(bot, message.from_user.id)
+        if "left" in channel_urls:
+            await message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(db.get_channels()))
         else:
             course = db.get_lesson(int(message.text))
             if course:

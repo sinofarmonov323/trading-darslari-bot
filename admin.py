@@ -74,7 +74,7 @@ async def show_vip_users(message: types.Message, state: FSMContext):
 @router.callback_query(and_f(F.data.in_(["add_channel", "remove_channels", "view_channels"]), is_admin))
 async def handle_channel_callback(call: types.CallbackQuery, state: FSMContext):
     if call.data == "add_channel":
-        await call.message.answer("Kanalning manzilini kiriting (misol: https://t.me/kanal_linki)")
+        await call.message.answer("Kanalning manzilini kiriting (misol: @kanal_username)")
         await state.set_state(AddChannel.channel_url)
     elif call.data == "remove_channels":
         db.remove_channels()
@@ -205,6 +205,7 @@ async def handle_remove_lesson(message: types.Message, state: FSMContext):
 @router.message(and_f(StateFilter(AddChannel.channel_url), is_admin))
 async def handle_add_channel(message: types.Message):
     channels = [channel.strip() for channel in message.text.split(", ")]
-    for channel in channels:
+    fixed_channels = [channel if channel.startswith("@") else f"@{channel}" for channel in channels]
+    for channel in fixed_channels:
         db.add_channel(channel)
     await message.answer("Kanallar qo'shildi")

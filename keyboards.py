@@ -3,15 +3,14 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 def main_menu():
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Referal havola", callback_data="referal_link"), InlineKeyboardButton(text="tugma 2", callback_data="button_2")],
-            [InlineKeyboardButton(text="tugma 3", callback_data="button_3"), InlineKeyboardButton(text="tugma 4", callback_data="button_4")],
+            [InlineKeyboardButton(text="Referal havola", callback_data="referal_link"), InlineKeyboardButton(text="Dars qidirish", callback_data="search_lesson")],
         ]
     )
 
 def send_channel_urls_button(channels: list[dict]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Obuna Bo'lish", url=channel)] for channel in channels
+            [InlineKeyboardButton(text="Obuna Bo'lish", url=channel.replace("@", "https://t.me/"))] for channel in channels
         ] + [
             [InlineKeyboardButton(text="Tekshirish", callback_data="check_sub")]
         ]
