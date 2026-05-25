@@ -24,16 +24,16 @@ async def get_subscription_statuses(bot: Bot, user_id: int) -> list[str]:
             statuses.append(member.status)
         return statuses
     except TelegramBadRequest:
-        return ["left", "error"]
+        return "error"
 
 @dp.message(CommandStart())
 async def start(message: types.Message, bot: Bot, command: CommandObject):
     channel_urls = await get_subscription_statuses(bot, message.from_user.id)
-    if "left" in channel_urls or "kicked" in channel_urls:
-        await message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(db.get_channels()))
-    if "error" in channel_urls:
+    if channel_urls == "error":
         for admin in db.get_admins():
             await bot.send_message(admin['user_id'], "Bot kanalda admin bo'lishi kerak")
+    elif "left" in channel_urls or "kicked" in channel_urls:
+        await message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(db.get_channels()))
     else:
         args = command.args
         if args:
@@ -54,11 +54,11 @@ async def handle_callback(call: types.CallbackQuery, bot: Bot):
 @dp.callback_query(F.data == "check_sub")
 async def check_subscription(call: types.CallbackQuery, bot: Bot):
     channel_urls = await get_subscription_statuses(bot, call.from_user.id)
-    if "left" in channel_urls:
-        await call.message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(db.get_channels()))
-    if "error" in channel_urls:
+    if channel_urls == "error":
         for admin in db.get_admins():
             await bot.send_message(admin['user_id'], "Bot kanalda admin bo'lishi kerak")
+    elif "left" in channel_urls:
+        await call.message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(db.get_channels()))
     else:
         db.add_user(call.from_user.id, call.from_user.username, "oddiy")
         await call.message.answer(f"Botdan foydalanishingiz mumkin", reply_markup=main_menu())
