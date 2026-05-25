@@ -6,7 +6,7 @@ from database import Database
 from keyboards import send_channel_urls_button, main_menu
 from admin import router
 from aiogram.fsm.context import FSMContext
-from aiogram.utils.deep_linking import create_start_link, decode_payload
+from aiogram.utils.deep_linking import create_start_link
 from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram.exceptions import TelegramBadRequest
 
@@ -23,14 +23,17 @@ async def get_subscription_statuses(bot: Bot, user_id: int) -> list[str]:
             member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
             statuses.append(member.status)
         return statuses
-    except:
-        return ["left"]
+    except TelegramBadRequest:
+        return ["left", "error"]
 
 @dp.message(CommandStart())
 async def start(message: types.Message, bot: Bot, command: CommandObject):
     channel_urls = await get_subscription_statuses(bot, message.from_user.id)
     if "left" in channel_urls or "kicked" in channel_urls:
         await message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(db.get_channels()))
+    if "error" in channel_urls:
+        for admin in db.get_admins():
+            await bot.send_message(admin['user_id'], "Bot kanalda admin bo'lishi kerak")
     else:
         args = command.args
         if args:
@@ -53,6 +56,9 @@ async def check_subscription(call: types.CallbackQuery, bot: Bot):
     channel_urls = await get_subscription_statuses(bot, call.from_user.id)
     if "left" in channel_urls:
         await call.message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(db.get_channels()))
+    if "error" in channel_urls:
+        for admin in db.get_admins():
+            await bot.send_message(admin['user_id'], "Bot kanalda admin bo'lishi kerak")
     else:
         db.add_user(call.from_user.id, call.from_user.username, "oddiy")
         await call.message.answer(f"Botdan foydalanishingiz mumkin", reply_markup=main_menu())
@@ -68,9 +74,9 @@ async def handle_digit(message: types.Message, bot: Bot, state: FSMContext):
         if "left" in channel_urls or "kicked" in channel_urls:
             await message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(db.get_channels()))
         else:
-            course = db.get_lesson(int(message.text))
-            if course:
-                await message.answer_video(course["video"], caption=course.get("name"))
+            lesson = db.get_lesson(int(message.text))
+            if lesson:
+                await message.answer_video(lesson["video"], caption=lesson.get("name"))
             else:
                 await message.answer("darsklik topilmadi")
 
