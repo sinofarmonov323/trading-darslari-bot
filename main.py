@@ -24,7 +24,7 @@ async def get_subscription_statuses(bot: Bot, user_id: int) -> list[str]:
             statuses.append(member.status)
         return statuses
     except:
-        return False
+        return ["left"]
 
 @dp.message(CommandStart())
 async def start(message: types.Message, bot: Bot, command: CommandObject):
