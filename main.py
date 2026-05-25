@@ -17,16 +17,19 @@ dp.include_router(router)
 db = Database("database.db")
 
 async def get_subscription_statuses(bot: Bot, user_id: int) -> list[str]:
-    statuses = []
-    for channel in db.get_channels():
-        member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
-        statuses.append(member.status)
-    return statuses
+    try:
+        statuses = []
+        for channel in db.get_channels():
+            member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
+            statuses.append(member.status)
+        return statuses
+    except:
+        return False
 
 @dp.message(CommandStart())
 async def start(message: types.Message, bot: Bot, command: CommandObject):
     channel_urls = await get_subscription_statuses(bot, message.from_user.id)
-    if "left" in channel_urls:
+    if "left" in channel_urls or "kicked" in channel_urls:
         await message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(db.get_channels()))
     else:
         args = command.args
@@ -62,7 +65,7 @@ async def handle_digit(message: types.Message, bot: Bot, state: FSMContext):
         raise SkipHandler()
     else:
         channel_urls = await get_subscription_statuses(bot, message.from_user.id)
-        if "left" in channel_urls:
+        if "left" in channel_urls or "kicked" in channel_urls:
             await message.answer("Botdan fodayalnish uchun kanallarga obuna bo'ling", reply_markup=send_channel_urls_button(db.get_channels()))
         else:
             course = db.get_lesson(int(message.text))
