@@ -48,7 +48,7 @@ async def handle_callback(call: types.CallbackQuery, bot: Bot):
         link = await create_start_link(bot, str(call.from_user.id))
         await call.message.answer(f"Sizning referal linkingiz: {link}")
     elif call.data == "search_lesson":
-        await call.message.answer("Bu funksiya hali mavjud emas")
+        await call.message.answer("Dars kodini kiriting")
     await call.answer()
 
 @dp.callback_query(F.data == "check_sub")
